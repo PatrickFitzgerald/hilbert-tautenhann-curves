@@ -63,15 +63,18 @@ for isOddH = [false,true]
 			for splitInd = 1:numSplitCases
 				tempOrderings = generateAllSplits( splittingCases(splitInd,:), original );
 				
-				% Simplify these solutions down as much as possible. We
-				% don't need many representatives from each size class.
-				tempOrderings = pruneSolutions(tempOrderings,original);
-				
 				% Accumulate these solutions
 				subOrderings = [ subOrderings; tempOrderings ]; %#ok<AGROW>
 			end
 			
+			% Simplify these solutions down as much as possible. We
+			% don't need many representatives from each size class.
+			subOrderings = pruneSolutions(subOrderings,original);
 			
+% 			for k = 1:size(subOrderings,1)
+% 				figure;
+% 				plot(subOrderings{k,2},subOrderings{k,1});
+% 			end
 			
 		end
 	end
@@ -238,10 +241,10 @@ function [foundSolutions,solutionList] = depthFirstMakeSolutions(depth,list,orde
 	end
 end
 
-function subOrderingBest = pruneSolutions(subOrderings, originalMemo)
+function subOrderingsBest = pruneSolutions(subOrderings, originalMemo)
 	
 	if isempty(subOrderings)
-		subOrderingBest = subOrderings;
+		subOrderingsBest = subOrderings;
 		return
 	end
 	
@@ -257,11 +260,11 @@ function subOrderingBest = pruneSolutions(subOrderings, originalMemo)
 	% "variance" will return a 0. If there's a mix, it will be nonzero.
 	% Also measure consistency with the parent memo's direction (diagonal
 	% or not diagonal).
-	[directionVariances,directionConsistencies] = cellfun(@(subMemos) measureDirectionUniformityConsistency(subMemos,originalMemo), subOrderings(:,2) );
+	[directionVariances,directionConsistencies] = cellfun(@(subMemos) measureDirectionMetrics(subMemos,originalMemo), subOrderings(:,2) );
 	
 	% Measure how uniformly the sub-solution parities are. Also measure the
 	% portion of consistent parities with the parent parity.
-	[parityVariances,parityConsistencies] = cellfun(@(subMemos) measureParityUniformityConsistency(subMemos,originalMemo), subOrderings(:,2) );
+	[parityVariances,parityConsistencies,paritySplittingQuality] = cellfun(@(subMemos,orderArray) measureParityMetrics(subMemos,originalMemo,orderArray), subOrderings(:,2), subOrderings(:,1) );
 	
 	% Summarize these qualities (weighting them differently). Here's the
 	% priority: (#1 is most important)
@@ -270,67 +273,125 @@ function subOrderingBest = pruneSolutions(subOrderings, originalMemo)
 	%   3. low parity variance                     INTER-CONSISTENCY
 	%   4. high direction consistency with parent  RECURSION CONSISTENCY
 	%   5. high parity consistency with parent     RECURSION CONSISTENCY
-	%   6. symmetric splitting parity              NICE TO HAVE
-	%   7. solution guaranteed                     NICE TO HAVE (until we require it...)
-	goodness = [isSymPath,-directionVariances,-parityVariances,directionConsistencies,parityConsistencies,isSymParity,isGuaranteed];
-% Determine what the best is over the full set, elementwise. This will
-% let us appreciate when certain qualities are impossible in this
-% situation, so we can set our standards more appropriately.
-maxGoodness = max(goodness,[],1);
+	%   6. split size and parity consistency       RECURSION CONSISTENCY
+	%   7. symmetric splitting parity              NICE TO HAVE
+	%   8. solution guaranteed                     NICE TO HAVE (until we require it...)
+	goodness = [
+		isSymPath,...
+		-directionVariances,...
+		-parityVariances,...
+		directionConsistencies,...
+		parityConsistencies,...
+		paritySplittingQuality,...
+		isSymParity,...
+		isGuaranteed...
+	];
+	% Define what the best value could be for each column, which will help
+	% with debugging
+	maxGoodness = [
+		1.0,... % isSymPath = true
+		0.0,... % -directionVariances = 0.0
+		0.0,... % -parityVariances = 0.0
+		1.0,... % directionConsistencies = 1.0
+		1.0,... % parityConsistencies = 1.0
+		1.0,... % paritySplittingQuality = 1.0
+		1.0,... % isSymParity = true
+		1.0 ... % isGuaranteed = true
+	];
 	
-% 	maxGoodness = [1,0,0,1,1,1,1];
-	
-% I THINK I NEED SOMETHING SMARTER THAN #2
-
 	[~,order] = sortrows(goodness,'descend'); % put the best ones first
 	
-% 	close all
-	kSet = find(all(goodness == goodness(order(1),:),2));
-	for k = kSet.'
+	% Gather a list of all solutions which are at the best available
+	% goodness.
+	selection = find(all(goodness == goodness(order(1),:),2));
+	
+	% This prior goodness was measured without *requiring* the solution is
+	% guaranteed. If none of the selected values were guaranteed, then we
+	% need to add some extra solutions to our selection so that
+	% collectively there is always a guaranteed solution available.
+	if ~any(isGuaranteed(selection))
+		% Verify that a solution does exist (even if it's bad)
+		assert(any(isGuaranteed), 'There were no solutions which were guaranteed...');
+		% Prevent non-guaranteed solutions from being selected.
+		tempGoodness = goodness;
+		tempGoodness(~isGuaranteed,:) = -inf;
+		% Solve in the same way as before
+		[~,order] = sortrows(tempGoodness,'descend');
+		guaranteedSelection = find(all(tempGoodness == tempGoodness(order(1),:),2));
+		% Concatenate the selections (the non-guaranteed solutions go
+		% first, since they are preferred.
+		selection = [selection; guaranteedSelection ];
+		% Since the old selection and the new selection are perfecly
+		% partitioned by their isGuaranteed status, there's no possibility
+		% of selections being redundant between the two parts.
+	end
+	
+	for k = selection.'
 		figure;
 		plot(subOrderings{k,2},subOrderings{k,1});
 		title(sprintf('is guaranteed: %u',isGuaranteed(k)));
 	end
-	selection = order(1);
 	
+	% This is more for debugging
 	if ~any(all(goodness==maxGoodness,2),1)
 		disp('nothing perfect')
-% 	else
-% 		disp('something perfect')
 	end
 	
-	% If we didn't pick out a guaranteed solution, we'll force it this time
-	% while we grab a second pick
-	if ~isGuaranteed(order(1))
-		goodness = [isGuaranteed,goodness];
-		[~,order] = sortrows(goodness,'descend'); % put the best ones first
-		kSet = find(all(goodness == goodness(order(1),:),2));
-		for k = kSet.'; figure; plot(subOrderings{k,2},subOrderings{k,1}); title(sprintf('is guaranteed: %u',isGuaranteed(k))); end
-		selection(end+1) = order(1);
-	end
-	
-	subOrderingBest = subOrderings(unique(selection),:);
+	subOrderingsBest = subOrderings(selection,:);
 	
 end
-function [directionVariance,directionConsistency] = measureDirectionUniformityConsistency(subMemos,parentMemo)
+% This measures the variance of diagonal/non-diagonal sub-crossings (zero
+% if they're all the same, biggest if they're evenly mixed) and the
+% consistency of diagonal/non-diagonal sub-crossings (relative to parent
+% crossing, 1.0 for perfectly consistent with parent, lower if not).
+function [directionVariance,directionConsistency] = measureDirectionMetrics(subMemos,parentMemo)
+	
+	% Rotating a diagonal still leaves a diagonal, which feels effectively
+	% unchanged, and therefore worth grouping. Similarly, left and right
+	% directions are equivalent up to rotations, so we'll group those too.
+	% This leaves just distinguishing diagonal vs non-diagonal
+	
 	starts = [subMemos.start];
 	stops  = [subMemos.stop];
 	isDiag = mod(stops-starts,4) == 2;
 	isDiagOrig = mod(parentMemo.stop-parentMemo.start,4) == 2;
+	
+	% Measure the variance treating these values as samples from a binomial
+	% distribution.
 	portionDiag = mean(isDiag);
 	directionVariance = portionDiag * (1-portionDiag);
-	directionConsistency = mean( isDiag == isDiagOrig);
+	
+	% Measure how similar the sub-memos' directions are similar to the
+	% parent memo's direction.
+	directionConsistency = mean( isDiag == isDiagOrig );
+	
 end
-function [parityVariance,parityConsistency] = measureParityUniformityConsistency(subMemos,parentMemo)
+function [parityVariance,parityConsistency,paritySplittingQuality] = measureParityMetrics(subMemos,parentMemo,orderArray)
 	
-	subParities = [ [subMemos.isOddH]; [subMemos.isOddW] ];
-	origParity  = [ parentMemo.isOddH; parentMemo.isOddW ];
+	subParities = [ [subMemos.isOddH]; [subMemos.isOddW] ]; % 2xM
+	origParity  = [ parentMemo.isOddH; parentMemo.isOddW ]; % 2x1
 	
+	% Generate a normalized histogram of these vertical/horizontal parties
+	% in the domains (height=[even,odd])x(width=[even,odd])
 	parityPMF = histcounts2( subParities(1,:),subParities(2,:), [-0.5,0.5,1.5],[-0.5,0.5,1.5]) / numel(subMemos);
-	mean1 = sum(sum(parityPMF .* [0;1]));
-	mean2 = sum(sum(parityPMF .* [0,1]));
-	parityVariance = sum(sum(parityPMF .* (([0;1]-mean1).^2 + ([0,1]-mean2).^2)));
+	% Use this probability mass function to measure the centroid in each
+	% dimension
+	meanH = sum(sum(parityPMF .* [0;1]));
+	meanW = sum(sum(parityPMF .* [0,1]));
+	% Measure the literal variance for this distribution
+	parityVariance = sum(sum(parityPMF .* (([0;1]-meanH).^2 + ([0,1]-meanW).^2)));
 	
+	% Measure how consistent the sub-memos' parities are wrt the parent
+	% memo's parity.
 	parityConsistency = mean(all(origParity == subParities,1));
+	
+	% Measure how consistent the splitting is compared to the parent. If
+	% the parent was even in some dimension, it makes more sense to split
+	% it into two pieces than 1 or 3 (although 1 is effectively a
+	% non-split, so it feels like it shouldn't really count).
+	sz = size(orderArray).';
+	splitParity = mod(sz,2);
+	isNonSplit = sz == 1;
+	paritySplittingQuality = mean((splitParity == origParity) | isNonSplit);
 	
 end

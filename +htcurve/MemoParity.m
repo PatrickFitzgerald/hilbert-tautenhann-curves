@@ -63,7 +63,7 @@ classdef MemoParity < htcurve.MemoBase % not handle
 		% of the splitting is symmetric. Overall diagonal transits are
 		% symmetric if they are invariant to 180 deg rotation and path
 		% reversal. Overall left or right transits are symmetric if they
-		% are invariant to an appropriate left-right/up-down flip and path
+		% are invariant to an appropriate up-down/left-right flip and path
 		% reversal.
 		function [isSymPath,isSymParity] = checkSymmetry(thisVec,orderArray)
 						
