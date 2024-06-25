@@ -43,6 +43,20 @@ end
 %%
 close all
 
+%% Group the splitting cases into different classes of splits
+% Classes of splitting
+%  1. Splitting along just the vertical dimension
+%  2. Splitting along just the horizontal dimension
+%  3. Splitting along both dimensions simultaneously
+splitsAlongVert = cellfun( @(s)s~=1, splittingCases(:,1));
+splitsAlongHorz = cellfun( @(s)s~=1, splittingCases(:,2));
+% Gather indices for these different splitting cases, so we may loop over
+% them together later
+splittingClasses = cell(3,1);
+splittingClasses{1} = find( splitsAlongVert & ~splitsAlongHorz);
+splittingClasses{2} = find(~splitsAlongVert &  splitsAlongHorz);
+splittingClasses{3} = find( splitsAlongVert &  splitsAlongHorz);
+
 %%
 
 original = htcurve.MemoParity();
@@ -59,23 +73,22 @@ for isOddH = [false,true]
 				continue
 			end
 			
-			subOrderings = cell(0,2);
-			for splitInd = 1:numSplitCases
-				tempOrderings = generateAllSplits( splittingCases(splitInd,:), original );
+			for splitClass = 1:3
 				
-				% Accumulate these solutions
-				subOrderings = [ subOrderings; tempOrderings ]; %#ok<AGROW>
+				subOrderings = cell(0,2);
+				for splitInd = splittingClasses{splitClass}.'
+					tempOrderings = generateAllSplits( splittingCases(splitInd,:), original );
+					
+					% Accumulate these solutions
+					subOrderings = [ subOrderings; tempOrderings ]; %#ok<AGROW>
+				end
+				
+				% Simplify these solutions down as much as possible. We
+				% don't need many representatives from each size/splitting
+				% class.
+				subOrderings = pruneSolutions(subOrderings,original);
+				
 			end
-			
-			% Simplify these solutions down as much as possible. We
-			% don't need many representatives from each size class.
-			subOrderings = pruneSolutions(subOrderings,original);
-			
-% 			for k = 1:size(subOrderings,1)
-% 				figure;
-% 				plot(subOrderings{k,2},subOrderings{k,1});
-% 			end
-			
 		end
 	end
 end
@@ -325,7 +338,7 @@ function subOrderingsBest = pruneSolutions(subOrderings, originalMemo)
 		% partitioned by their isGuaranteed status, there's no possibility
 		% of selections being redundant between the two parts.
 	end
-	
+	close all
 	for k = selection.'
 		figure;
 		plot(subOrderings{k,2},subOrderings{k,1});
