@@ -57,7 +57,16 @@ splittingClasses{1} = find( splitsAlongVert & ~splitsAlongHorz);
 splittingClasses{2} = find(~splitsAlongVert &  splitsAlongHorz);
 splittingClasses{3} = find( splitsAlongVert &  splitsAlongHorz);
 
-%%
+%% Downselect solutions
+
+% We'll prepare a place to store all our solutions
+%   dim 1: isOddH:     {false,true}
+%   dim 2: isOddW:     {false,true}
+%   dim 3: stop:       {1,2,3} conditional on starting on 0
+%   dim 4: splitClass: {1,2,3}
+splittings = cell(2,2,3,3);
+% This will have empty contents wherever that case is impossible.
+uiwait(msgbox('When each figure pops up, uncheck any splittings which are redundant to other checked splittings. Close the figure when you''re happy with your selection.','Instructions'));
 
 original = htcurve.MemoParity();
 original.start = 0; % fixed
@@ -83,15 +92,163 @@ for isOddH = [false,true]
 					subOrderings = [ subOrderings; tempOrderings ]; %#ok<AGROW>
 				end
 				
+				% If this split class is empty (e.g. trying to split in an
+				% invalid direction), no need to prune.
+				if isempty(subOrderings)
+					continue
+				end
+				
 				% Simplify these solutions down as much as possible. We
 				% don't need many representatives from each size/splitting
 				% class.
-				subOrderings = pruneSolutions(subOrderings,original);
+				[subOrderings,goodnessMetrics] = pruneSolutions(subOrderings,original);
+				
+				numSol = size(subOrderings,1);
+				switch numSol
+					case 0 % no solutions found, even though we solutions provided...
+						error('Solution pruning failed');
+					case 1 % exactly one. nothing fancy to do
+						% no op
+					otherwise % 2 or more solutions
+						% Let the user downselect to remove symmetry, if
+						% necessary
+						
+						% Plan how to format the figure
+						numRows = floor(sqrt(numSol));
+						numCols = ceil(numSol ./ numRows);
+						f = figure('MenuBar','none','ToolBar','none',...
+							'CloseRequestFcn',@recordAndClose);
+						checkBoxes = gobjects(numSol,1);
+						for k = 1:numSol
+							ax = subplot(numRows,numCols,k);
+							plot(subOrderings{k,2},subOrderings{k,1});
+							checkBoxes(k) = uicontrol('Parent',f,'Style','checkbox',...
+								'Value',true,'String','Keep?',...
+								'Units','normalized'...
+							);
+							checkBoxes(k).Position(1:2) = ax.Position(1:2);
+						end
+						f.UserData = checkBoxes; % unambiguous, self-managed copy
+						
+						% Wait for the figure to close
+						uiwait(f);
+						% Retrieve the last copy of the checkbox settings
+						selections = recordAndClose('retrieve');
+						
+						% Downselect and proceed
+						subOrderings    = subOrderings(    logical(selections), :);
+						goodnessMetrics = goodnessMetrics( logical(selections), :);
+				end
+				numSol = size(subOrderings,1);
+				
+				% Store answers and move to the next case
+				splittings{isOddH+1,isOddW+1,stop,splitClass} = [ subOrderings, mat2cell(goodnessMetrics,ones(numSol,1),size(goodnessMetrics,2)) ];
 				
 			end
 		end
 	end
 end
+
+%% Package and save splittings
+
+% We'll have the main set of solutions contain less dependence on cells,
+% just to remove the overhead there. That necessitates some mapping from
+% problem scenario to a set of solutions in a global list.
+e = cell(1,0);
+linearized = struct(...
+	'numH',e,...          1 x 1
+	'numW',e,...          1 x 1
+	'isOddH',e,...        numH x 1
+	'isOddW',e,...        1 x numW
+	'subOrderings',e,...  numH x numW
+	'subStarts',e,...     numH x numW
+	'subStops',e ...      numH x numW
+);
+lookupOffset = nan(2,2,3); % Collapse on splitting class dimension
+lookupCount  = nan(2,2,3);
+
+for isOddH = [false,true]
+	for isOddW = [false,true]
+		for stop = 1:3
+			% We cared about split class when we were pruning solutions,
+			% but when we're using these splittings to prepare
+			% sub-solutions, they are equivalent. We'll bundle them
+			% together.
+			splitClass = 1:3;
+			
+			origProbInds = arrayfun(@(sc) sub2ind([2,2,3,3],isOddH+1,isOddW+1,stop,sc), splitClass);
+			testProbInds = sub2ind([2,2,3],  isOddH+1,isOddW+1,stop);
+			
+			% Group the solutions from separate splitting classes
+			splittings_ = cat(1,splittings{origProbInds});
+			
+			% If this scenario has no solutions, then it was an invalid
+			% problem, so we will skip formatting it. This will leave
+			% the lookup terms nan, which will make downstream errors
+			% more obvious.
+			numSol = size(splittings_,1);
+			if numSol == 0
+				continue
+			end
+			
+			% If the problem was valid, record where to find the
+			% solutions.
+			o = numel(linearized); % before we've appended. o = offset
+			lookupOffset(testProbInds) = o;
+			lookupCount (testProbInds) = numSol;
+			
+			% Add those solutions, where the solutions with the greatest
+			% goodness appear in the list first
+			[~,order] = sortrows( cell2mat(splittings_(:,3)), 'descend' );
+			for k = 1:numSol % output index
+				
+				temp1 = splittings_{order(k),1};
+				temp2 = splittings_{order(k),2};
+				
+				% Store size
+				linearized(o+k).numH = size(temp1,1);
+				linearized(o+k).numW = size(temp1,2);
+				
+				
+				% Extract a dimensionally projected version of the
+				% parity
+				
+				reshapedParityMemos = temp2(temp1);
+				% Matlab has some discrepancies for the orientation of
+				% arrays indexed with N (N>1) dimensional arrays vs 1D
+				% arrays...
+				if ~isequal(size(reshapedParityMemos),size(temp1))
+					reshapedParityMemos = reshape(reshapedParityMemos,size(temp1));
+				end
+				
+				% I will defer error catching on inconsistency upon
+				% projecting onto each dimension... This should have
+				% been elsewhere
+				linearized(o+k).isOddH = arrayfun(@(pm)pm.isOddH, reshapedParityMemos(:,1));
+				linearized(o+k).isOddW = arrayfun(@(pm)pm.isOddW, reshapedParityMemos(1,:));
+				
+				
+				% Store the sub-solution ordering
+				linearized(o+k).subOrderings = temp1;
+				
+				
+				% At this point, the only uncaptured info in the solved
+				% MemoParity objects is the start/stop position. Gather
+				% those.
+				linearized(o+k).subStarts = arrayfun(@(pm)pm.start, reshapedParityMemos);
+				linearized(o+k).subStops  = arrayfun(@(pm)pm.stop,  reshapedParityMemos);
+				
+			end
+			
+		end
+	end
+end
+
+% Save this to file, to be accessed by the solver
+save( fullfile( htcurve.getPackagePath(),'private','splittings.mat'),...
+	'linearized','lookupOffset','lookupCount');
+
+%% Support functions
 
 % No output arguments will only plot the splittingCases. The subOrderings
 % will be a cell array. The original will be a MemoParity object,
@@ -254,12 +411,7 @@ function [foundSolutions,solutionList] = depthFirstMakeSolutions(depth,list,orde
 	end
 end
 
-function subOrderingsBest = pruneSolutions(subOrderings, originalMemo)
-	
-	if isempty(subOrderings)
-		subOrderingsBest = subOrderings;
-		return
-	end
+function [subOrderingsBest,goodnessBest] = pruneSolutions(subOrderings, originalMemo)
 	
 	% Determine which of these sub-orderings have guaranteed solutions
 	% (i.e. avoid column/row sub-sizes)
@@ -299,6 +451,7 @@ function subOrderingsBest = pruneSolutions(subOrderings, originalMemo)
 		isSymParity,...
 		isGuaranteed...
 	];
+	meaningfulMetrics = 1:7;
 	% Define what the best value could be for each column, which will help
 	% with debugging
 	maxGoodness = [
@@ -338,12 +491,12 @@ function subOrderingsBest = pruneSolutions(subOrderings, originalMemo)
 		% partitioned by their isGuaranteed status, there's no possibility
 		% of selections being redundant between the two parts.
 	end
-	close all
-	for k = selection.'
-		figure;
-		plot(subOrderings{k,2},subOrderings{k,1});
-		title(sprintf('is guaranteed: %u',isGuaranteed(k)));
-	end
+% 	close all
+% 	for k = selection.'
+% 		figure;
+% 		plot(subOrderings{k,2},subOrderings{k,1});
+% 		title(sprintf('is guaranteed: %u',isGuaranteed(k)));
+% 	end
 	
 	% This is more for debugging
 	if ~any(all(goodness==maxGoodness,2),1)
@@ -351,6 +504,7 @@ function subOrderingsBest = pruneSolutions(subOrderings, originalMemo)
 	end
 	
 	subOrderingsBest = subOrderings(selection,:);
+	goodnessBest = goodness(selection,meaningfulMetrics);
 	
 end
 % This measures the variance of diagonal/non-diagonal sub-crossings (zero
@@ -407,4 +561,14 @@ function [parityVariance,parityConsistency,paritySplittingQuality] = measurePari
 	isNonSplit = sz == 1;
 	paritySplittingQuality = mean((splitParity == origParity) | isNonSplit);
 	
+end
+
+function varargout = recordAndClose(f,~)
+	persistent lastVec
+	if isa(f,'matlab.ui.Figure')
+		lastVec = arrayfun( @(c)c.Value, f.UserData);
+		delete(f);
+	else
+		varargout{1} = lastVec;
+	end
 end

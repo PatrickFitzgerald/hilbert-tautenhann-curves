@@ -20,6 +20,8 @@ classdef CurveGenerator < handle
 		% This looks up the order of the requested coordinate without
 		% needing to evaluate a full image of orders. This should be quite
 		% efficient
+% TODO: support a vector of r,c values. in this func, sort them so they are
+% well behaved in sub-functions. then reorder the results
 		function order = lookupPoint(this,H,W,r,c)
 			
 			% So the request can be delivered, make sure we've solved this
@@ -49,7 +51,7 @@ classdef CurveGenerator < handle
 			
 % TODO:
 % NOT DONE: propagate request to populate `order`. we may want to offer
-% deleting these (if ~solnIsDeferred) in case it needs to much data. If we
+% deleting these (if ~solnIsDeferred) in case it needs too much data. If we
 % serialize solutions, these should also be discarded, since they can be
 % reconstructed.
 			
@@ -263,7 +265,8 @@ classdef CurveGenerator < handle
 					return
 				end
 			end
-% binary search? periodically reorder data for efficiency?
+% binary search? periodically reorder data for efficiency? binary search
+% tree/linked list?
 % TODO: sort storedSolutions so it can be searched more efficiently?
 			
 		end
@@ -272,19 +275,70 @@ classdef CurveGenerator < handle
 		% standardized memo.
 		function recursiveSolver(this,memo)
 			
+			persistent splittings
+			if isempty(splittings)
+				splittings = load(fullfile( htcurve.getPackagePath(),'private','splittings.mat'));
+				% Loaded field breakdown:
+				%   lookupOffsets - 2 x 2 x 3 index offsets (or nan if invalid)   
+				%   lookupCounts  - 2 x 2 x 3 quantities (or nan if invalid)   
+				%   linearized    - 1 x N struct
+				% The "lookupOffsets" and "lookupCounts" are used as a map
+				% from
+				%   dim 1: isOddH:     {false,true}
+				%   dim 2: isOddW:     {false,true}
+				%   dim 3: stop:       {1,2,3} conditional on starting on 0
+				% to the entries in field "linearized". If your scenario
+				% indexes into the lookup*** variables and gets 20 and 3
+				% (respectively), then linearized(21), linearized(22), and
+				% linearized(23) are relevant.
+				% "linearized" has the following fields
+				%   numH         - 1 x 1
+				%   numW         - 1 x 1
+				%   isOddH       - numH x 1
+				%   isOddW       - 1 x numW
+				%   subOrderings - numH x numW
+				%   subStarts    - numH x numW
+				%   subStops     - numH x numW
+				% The entries of "linearized" are sorted (local to each
+				% group of entries) so the best one (aspect ratio and
+				% feasibility aside) are are earlier in the list.
+			end
+			
 			% Determine if this has already been solved
 			if this.lookupMemo(memo) % wasFound is condition
 				% Terminate if solved
 				return
 			end
-			% If we're still running, then we need to solve it.
+			% If we're still running, then we need to solve it by splitting
+			% and recurring
 			
+			isOddH = memo.getParityH() == 1;
+			isOddW = memo.getParityW() == 1;
 			
-			% For the time being, I'll implement something quite close to
-			% Tautenhahn's approach
+			solCount  = splittings.lookupCount(  isOddH+1, isOddW+1, memo.stop );
+			solOffset = splittings.lookupOffset( isOddH+1, isOddW+1, memo.stop );
+			assert(~isnan(solCount) && ~isnan(solOffset), 'Encountered a scenario predicted to be impossible...')
 			
-			
-			
+			splitInds = solOffset + (1:solCount);
+			for splitInd = splitInds
+				splittings.linearized(splitInd)
+				
+				
+				
+				
+				% find the best way to split the real size into smaller
+				% sizes which comply with the parity of this splitting
+				% 
+				% if any of the splittings don't have a solution, skip
+				% this splitting. Ideally, we design the size selection
+				% process so that we don't artificially make non-solutions
+				% happen... (we'd need to be especially careful around 1xN
+				% sub solutions)
+				
+				
+				
+				
+			end
 			
 			
 			
