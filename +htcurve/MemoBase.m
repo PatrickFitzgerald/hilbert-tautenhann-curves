@@ -79,7 +79,7 @@ classdef (Abstract) MemoBase % not handle
 		end
 	end
 	
-	methods (Access = protected, Abstract)
+	methods (Access = public, Hidden) % not worth the hassle of giving the CurveGenerator access too...
 		% These functions extract the parity (0 for even, 1 for odd) of the
 		% corresponding height (H) and width (W). Values returned should be
 		% logical scalars.

@@ -1,8 +1,8 @@
 classdef SolutionMemo < htcurve.MemoBase % not handle
 	
 	properties (Access = public)
-		height (1,1) uint32 = 0; % > 0
-		width  (1,1) uint32 = 0; % > 0
+		height (1,1) uint32 = 0; % > 0 is valid
+		width  (1,1) uint32 = 0; % > 0 is valid
 	end
 	
 	methods (Access = public)
@@ -110,7 +110,7 @@ classdef SolutionMemo < htcurve.MemoBase % not handle
 		end
 	end
 	
-	methods (Access = protected)
+	methods (Access = public, Hidden) % not worth the hassle of giving the CurveGenerator access too...
 		function parityH = getParityH(this)
 			parityH = mod(this.height,2);
 		end

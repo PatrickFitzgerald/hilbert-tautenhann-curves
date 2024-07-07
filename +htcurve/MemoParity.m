@@ -6,7 +6,7 @@ classdef MemoParity < htcurve.MemoBase % not handle
 	end
 	
 	% Satisfying MemoBase inheritance
-	methods (Access = protected)
+	methods (Access = public, Hidden) % not worth the hassle of giving the CurveGenerator access too...
 		function parityH = getParityH(this)
 			parityH = this.isOddH; % isOddH is true=1 when mod(H,2)=1
 		end
