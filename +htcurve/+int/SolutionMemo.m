@@ -1,4 +1,4 @@
-classdef SolutionMemo < htcurve.MemoBase % not handle
+classdef SolutionMemo < htcurve.int.MemoBase % not handle
 	
 	properties (Access = public)
 		height (1,1) uint32 = 0; % > 0 is valid
@@ -70,7 +70,7 @@ classdef SolutionMemo < htcurve.MemoBase % not handle
 			%  3. Tie-breaker: transpose domain so ending position is left or diagonal
 			
 			% Start from an identity transform
-			transform = htcurve.Transform();
+			transform = htcurve.int.Transform();
 			% Copy memo's size
 			transform.height = this.height;
 			transform.width  = this.width;

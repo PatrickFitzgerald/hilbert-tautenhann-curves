@@ -3,7 +3,7 @@ classdef CurveGenerator < handle
 	% This is a list of the gathered solutions, which we can build off as
 	% we do more processing.
 	properties (GetAccess = public, SetAccess = private)
-		storedSolutions (:,1) htcurve.Solution = htcurve.Solution.empty(0,1);
+		storedSolutions (:,1) htcurve.int.Solution = htcurve.int.Solution.empty(0,1);
 	end
 	
 	methods (Access = public)
@@ -63,7 +63,7 @@ classdef CurveGenerator < handle
 		function [memoStd,transform] = convertUserInput(~,height,width)
 			
 			% Make a default memo of the desired size (not standardized)
-			memo = htcurve.SolutionMemo();
+			memo = htcurve.int.SolutionMemo();
 			memo.height = height;
 			memo.width  = width;
 			memo.start  = 0; % default assumption
@@ -100,19 +100,19 @@ classdef CurveGenerator < handle
 		function defineBaseSolutions(this)
 			
 			% Make sure we're starting from a consistent definition
-			this.storedSolutions = htcurve.Solution.empty(0,1);
+			this.storedSolutions = htcurve.int.Solution.empty(0,1);
 			% Add each hardcoded case in turn
 			
 			% We'll define everything in its standardized representation.
 			% We'll build from a prototype object
-			proto = htcurve.Solution();
+			proto = htcurve.int.Solution();
 			proto.memo.height = 0; % to be tailored below
 			proto.memo.width  = 0; % to be tailored below
 			proto.memo.start  = 0; % standard start
 			proto.memo.stop   = 1; % left - to be tailored below
 			proto.solnIsDeferred = false; % none of these base solutions are deferred
 			proto.order = nan; % not yet populated
-			proto.subSolutions = htcurve.SolutionPiece.empty(0,1); % not used for non-deferred solutions
+			proto.subSolutions = htcurve.int.SolutionPiece.empty(0,1); % not used for non-deferred solutions
 			proto.reconstruction = double.empty(0,0); % not used for non-deferred solutions
 			
 			% 1x1
@@ -277,7 +277,7 @@ classdef CurveGenerator < handle
 			
 			persistent splittings
 			if isempty(splittings)
-				splittings = load(fullfile( htcurve.getPackagePath(),'private','splittings.mat'));
+				splittings = load(fullfile( htcurve.getPackagePath(),'+int','splittings.mat'));
 				% Loaded field breakdown:
 				%   lookupOffsets - 2 x 2 x 3 index offsets (or nan if invalid)   
 				%   lookupCounts  - 2 x 2 x 3 quantities (or nan if invalid)   

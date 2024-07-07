@@ -6,7 +6,7 @@ classdef MemoParityList < handle % !!
 	
 	methods (Access = public)
 		function this = MemoParityList(quant)
-			this.entries = repmat( htcurve.MemoParity(), quant, 1 );
+			this.entries = repmat( htcurve.int.MemoParity(), quant, 1 );
 		end
 	end
 	

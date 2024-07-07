@@ -6,8 +6,8 @@ classdef SolutionPiece % not handle
 	properties (Access = public)
 		orderOffset           (1,1) uint32 = 0;
 		subRegionWindow       (1,4) uint32 = zeros(1,4,'uint32'); % [first row, last row, first col, last col] (inclusive)
-		transformToSubProblem (1,1) htcurve.Transform    = htcurve.Transform();
-		subProblemMemo        (1,1) htcurve.SolutionMemo = htcurve.SolutionMemo();
+		transformToSubProblem (1,1) htcurve.int.Transform    = htcurve.int.Transform();
+		subProblemMemo        (1,1) htcurve.int.SolutionMemo = htcurve.int.SolutionMemo();
 	end
 	% NOTE: the transformToSubProblem is intended for use *after*
 	% truncating things to the subRegionWindow (and becoming relative to

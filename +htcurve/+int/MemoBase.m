@@ -195,7 +195,7 @@ classdef (Abstract) MemoBase % not handle
 			
 			
 			% Check the orderArray specifies a contiguous order
-			orderListRC = htcurve.MemoBase.orderArrayToList(orderArray);
+			orderListRC = htcurve.int.MemoBase.orderArrayToList(orderArray);
 			absDeltas = abs(diff(orderListRC,[],1));
 			assert( all(all(sort(absDeltas,2) == [0,1])), ... all deltas should change one dimension by +/-1, and the other dimension should be unchanged
 				'The orderArray specified does not specify a contiguous path.');

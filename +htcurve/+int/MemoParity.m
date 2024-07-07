@@ -1,4 +1,4 @@
-classdef MemoParity < htcurve.MemoBase % not handle
+classdef MemoParity < htcurve.int.MemoBase % not handle
 	
 	properties (Access = public)
 		isOddH (1,1) logical = false;

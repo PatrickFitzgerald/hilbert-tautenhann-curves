@@ -26,7 +26,7 @@ for splitInd = 1:numSplitCases
 	for variantInd = 1:numel(splittingCases{splitInd,3})
 		% Convert each order array to an order list [r1,c1; r2,c2; ...]
 		splittingCases{splitInd,4}{variantInd} = ...
-			htcurve.MemoBase.orderArrayToList(...
+			htcurve.int.MemoBase.orderArrayToList(...
 				splittingCases{splitInd,3}{variantInd}...
 			);
 	end
@@ -68,7 +68,7 @@ splittings = cell(2,2,3,3);
 % This will have empty contents wherever that case is impossible.
 uiwait(msgbox('When each figure pops up, uncheck any splittings which are redundant to other checked splittings. Close the figure when you''re happy with your selection.','Instructions'));
 
-original = htcurve.MemoParity();
+original = htcurve.int.MemoParity();
 original.start = 0; % fixed
 for isOddH = [false,true]
 	for isOddW = [false,true]
@@ -245,7 +245,7 @@ for isOddH = [false,true]
 end
 
 % Save this to file, to be accessed by the solver
-save( fullfile( htcurve.getPackagePath(),'private','splittings.mat'),...
+save( fullfile( htcurve.getPackagePath(),'+int','splittings.mat'),...
 	'linearized','lookupOffset','lookupCount');
 
 %% Support functions
@@ -262,7 +262,7 @@ function subOrderings = generateAllSplits(splittingCase,original)
 	% handle object so, so only one copy of it will exist. Given that as we
 	% recur later on, prior selections will remain intact until we're done
 	% testing, we don't need to worry about reusing the memory.
-	list = htcurve.MemoParityList(s1*s2);
+	list = htcurve.int.MemoParityList(s1*s2);
 	
 	% We'll gather valid suborderings as we find them
 	subOrderings = cell(0,2);
@@ -273,7 +273,7 @@ function subOrderings = generateAllSplits(splittingCase,original)
 		orderList = subSolns{ssInd};
 		
 		% Error checking and visualization
-		orderArray = htcurve.MemoBase.orderListToArray( orderList ); % reconstruct, for error checking and visualization
+		orderArray = htcurve.int.MemoBase.orderListToArray( orderList ); % reconstruct, for error checking and visualization
 		assert( isequal(size(orderArray),[s1,s2]), 'Size mismatch' );
 		if nargout == 0
 			figure;
