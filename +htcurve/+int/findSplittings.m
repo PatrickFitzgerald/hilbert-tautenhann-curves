@@ -156,9 +156,9 @@ end
 %   - need to anticipate if next step will lead to a potentially invalid
 %     solution
 
-[success,errIDs,errMessages] = hasSolution(this,strictness)
+% [success,errIDs,errMessages] = hasSolution(this,strictness)
 
-errIDs{end+1,1} = 'MemoParity:solnNotCertain'
+% errIDs{end+1,1} = 'MemoParity:solnNotCertain'
 
 
 %% Package and save splittings
