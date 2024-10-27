@@ -43,7 +43,7 @@ classdef MemoParity < htcurve.int.MemoBase % not handle
 					if isSpecial
 						success = false;
 						errIDs{end+1,1} = 'MemoParity:solnNotCertain';
-						errMessages{end+1,1} = 'This memo falls into a special case which (without more information) does have a guaranteed solution.';
+						errMessages{end+1,1} = 'This memo falls into a special case which (without more information) does not have a guaranteed solution.';
 					end
 				otherwise
 					error('Unexpected value for "strictness" argument. Use either ''any'' or ''guaranteed''.')

@@ -194,7 +194,8 @@ classdef CurveGenerator < handle
 			% Now kick off the recursive solver, which will terminate
 			% whenever everything has been solved. If everything was
 			% already solved, then it will terminate immediately.
-			this.recursiveSolver(memo);
+			solvable = this.recursiveSolver(memo);
+			assert(solvable,'Problem is not solvable... (should not happen)');
 			
 		end
 		% This looks up the requested coordinate based on our internal
@@ -272,8 +273,16 @@ classdef CurveGenerator < handle
 		end
 		% This chooses how to break the problem into smaller pieces, and
 		% recursively solves those subproblems. memo should be a
-		% standardized memo.
-		function recursiveSolver(this,memo)
+		% standardized memo. Returns false if memo is not solvable. If it
+		% was solvable, then its solution has been added to our list of
+		% stored solutions. Nothing happens if not solvable.
+		function solvable = recursiveSolver(this,memo)
+			
+			% Only proceed if we have a solution
+			solvable = memo.hasSolution();
+			if ~solvable
+				return
+			end
 			
 			persistent splittings
 			if isempty(splittings)
@@ -319,10 +328,76 @@ classdef CurveGenerator < handle
 			solOffset = splittings.lookupOffset( isOddH+1, isOddW+1, memo.stop );
 			assert(~isnan(solCount) && ~isnan(solOffset), 'Encountered a scenario predicted to be impossible...')
 			
+			
+% NEED: info on how many 2-step solutions there are (so I can allocate
+% sizes easier)
+numOptions = 1;
+			nextOption = 1;
+			
+% ???: how do I want to capture the sub solutions?
+% ???: how careful do I want to be with +1/-1 questions when predicting the
+%      next layer?
+			
 			splitInds = solOffset + (1:solCount);
 			for splitInd = splitInds
-				splittings.linearized(splitInd)
 				
+				% Assume that the proposed splitting is *possible*, other
+				% than potentially leading to edge cases like 1xN or Nx1
+				% sub-solutions (we'll avoid them where possible).
+				
+				
+				
+				% I think this function should return success/failure
+				% status. this lets me check if the problem is solvable at
+				% the very front, and then this process can be be made
+				% pretty stupid (just an ability to keep trying until we
+				% find something that doesn't fail). since the failure will
+				% only happen at the very end of the recursion chains,
+				% there will be minimal rework--it's more just moving the
+				% check for validity into the next deeper function call.
+				%    hmm. if it's that easy, why bother?
+				%         ah. it's helpful if the failure happened in a
+				%         choice *several* steps earlier.
+				% I'll need to be careful to choose when results are saved
+				% to our global list. because recurring always performs a
+				% nontrivial split, we can guarantee that earlier splits
+				% will not be reused until they return. therefore we can
+				% save solutions at the very end of this function.
+				
+				
+				
+				% okay, idea:
+				% here are the end points we'll consider when optimizing
+				%  1. one split: consider even splitting in both dimensions
+				%  2. two splits: consider biased splitting in this step
+				%     so that the next step can split evenly in both
+				%     dimensions
+				% I can gather information about future splittings offline,
+				% but I'll need to be careful with any transforms that may
+				% happen in between (so that future splitting sizes are
+				% aligned to the current orientation, not future
+				% orientation)
+				% I should probably check whether that future splitting is
+				% valid...
+				
+				S = splittings.linearized(splitInd);
+				p = repmat( htcurve.int.MemoParity(), [S.numH,S.numW] );
+				for r = 1:S.numH
+					for c = 1:S.numW
+						p(r,c).isOddH = S.isOddH(r);
+						p(r,c).isOddW = S.isOddW(c);
+						p(r,c).start  = S.subStarts(r,c);
+						p(r,c).stop   = S.subStops(r,c);
+					end
+				end
+				
+				
+				
+				
+				
+				
+				memo.width
+				memo.height
 				
 				
 				

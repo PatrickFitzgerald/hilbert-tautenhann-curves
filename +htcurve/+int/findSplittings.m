@@ -149,6 +149,18 @@ for isOddH = [false,true]
 	end
 end
 
+%%
+
+% 1-step anticipation of what splitting options will be available
+%   - need to anticipate if width swaps with height
+%   - need to anticipate if next step will lead to a potentially invalid
+%     solution
+
+[success,errIDs,errMessages] = hasSolution(this,strictness)
+
+errIDs{end+1,1} = 'MemoParity:solnNotCertain'
+
+
 %% Package and save splittings
 
 % We'll have the main set of solutions contain less dependence on cells,
